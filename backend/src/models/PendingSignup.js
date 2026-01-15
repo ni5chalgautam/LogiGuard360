@@ -9,6 +9,7 @@ const PendingSignupSchema = new mongoose.Schema(
     codeHash: { type: String, required: true },
     expiresAt: { type: Date, required: true, index: true },
     attempts: { type: Number, default: 0 }
+  
   },
   { timestamps: true }
 );

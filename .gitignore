@@ -1,0 +1,63 @@
+############################
+# LogiGuard360 (.gitignore)
+############################
+
+# Dependencies
+**/node_modules/
+**/.pnp/
+.pnp.js
+
+# Environment / secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Test / coverage output
+coverage/
+.nyc_output/
+
+# Build output
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Caches / temp
+.cache/
+.parcel-cache/
+tmp/
+temp/
+
+# Uploads / generated files (if you add these later)
+uploads/
+backend/uploads/
+backend/public/uploads/
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+.history/
+*.swp
+*.swo
+*.sublime-*
+
+# Visual Studio / VS stuff
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates

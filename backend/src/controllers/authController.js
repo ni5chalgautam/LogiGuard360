@@ -191,7 +191,8 @@ export async function googleLogin(req, res, next){
       });
     }
 
-   if(!user.isActive) return res.status(403).json({ message: "Account pending admin approval" });
+   if(!user.isActive)
+     return res.status(403).json({ message: "Account pending admin approval" });
 
 
     await AuditLog.create({ id: makeId("A"), action: "LOGIN_GOOGLE", actor: user.userId });
