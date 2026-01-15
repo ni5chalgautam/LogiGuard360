@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LogiGuard360 • Feedback</title>
+
+  <!-- <--- ADD YOUR BACKEND HERE
+       SINGLE endpoint used on this page:
+       POST /feedback
+       Change only if your backend route is different (feedbackRoutes.js). -->
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="assets/app.js" defer></script>
+</head>
+
+<body data-page="Feedback" data-protected="true">
+  <main class="lg-page">
+    <div class="lg-h1">Feedback / Issues</div>
+    <div class="lg-sub">Routes file: <code>feedbackRoutes.js</code>. Model: <code>Feedback.model.js</code>.</div>
+
+    <div class="lg-grid">
+      <section class="lg-card" style="grid-column: span 8;">
+        <h3>Report an issue</h3>
+        <label class="lg-k" for="msg">Message</label>
+        <textarea class="lg-input" id="msg" placeholder="Describe the issue, where it happened, and steps to reproduce..."></textarea>
+        <button class="lg-btn primary" id="send" style="margin-top:12px;"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+        <div class="lg-note" id="status" style="margin-top:10px;"></div>
+      </section>
+
+      <section class="lg-card" style="grid-column: span 4;">
+        <h3>Tips</h3>
+        <div class="lg-note">Include: page name, expected result, actual result, screenshots if possible.</div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const msg = document.getElementById("msg");
+      const status = document.getElementById("status");
+
+      document.getElementById("send").addEventListener("click", async () => {
+        status.textContent = "";
+        if(!msg.value.trim()) return status.textContent = "Write a message first.";
+
+        try{
+          // <--- ADD YOUR BACKEND HERE --->
+          // POST /feedback
+          // Expected body: { userId, message, timestamp }
+          const payload = {
+            userId: LG.userId(),
+            message: msg.value.trim(),
+            timestamp: new Date().toISOString()
+          };
+
+          const data = await LG.request("/feedback", { method:"POST", body: payload });
+
+          status.textContent = "Submitted. " + (data?.feedbackId ? "Feedback ID: " + data.feedbackId : "");
+          msg.value = "";
+        }catch(err){
+          status.textContent = err.message + " (check backend route + CORS).";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

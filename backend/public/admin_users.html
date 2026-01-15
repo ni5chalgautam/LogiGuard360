@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LogiGuard360 • Manage Users</title>
+
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="assets/app.js" defer></script>
+</head>
+
+<body data-page="Manage Users" data-protected="true">
+  <main class="lg-page">
+    <div class="lg-h1">Manage User Accounts</div>
+    <div class="lg-sub">
+      Admin-only: approve (enable) new users or disable existing users.
+      <br>Endpoints: <code>GET /admin/users</code>, <code>POST /admin/users/enable</code>, <code>POST /admin/users/disable</code>
+    </div>
+
+    <div class="lg-grid">
+      <section class="lg-card" style="grid-column: span 12;">
+        <h3>Users</h3>
+        <table class="lg-table" id="tbl">
+          <thead>
+            <tr>
+              <th>User ID</th>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="lg-note" id="status" style="margin-top: 10px;"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      if(!LG.requireRole(["systemAdministrator"])) return;
+
+      const tbody = document.querySelector("#tbl tbody");
+      const status = document.getElementById("status");
+
+      async function fetchUsers(){
+        const data = await LG.request("/admin/users");
+        return Array.isArray(data) ? data : (data.items || data.users || []);
+      }
+
+      function isActive(u){
+        // backend should provide isActive in toSafeJSON()
+        // fallback: treat undefined as true (older seeds)
+        return (u.isActive === undefined) ? true : !!u.isActive;
+      }
+
+      function render(users){
+        tbody.innerHTML = users.map(u => {
+          const id = u.userId || u._id || u.id || "";
+          const active = isActive(u);
+
+          const statusBadge = active
+            ? `<span class="lg-badge low"><i class="fa-solid fa-circle-check"></i> Active</span>`
+            : `<span class="lg-badge high"><i class="fa-solid fa-clock"></i> Pending</span>`;
+
+          const btn = active
+            ? `<button class="lg-btn danger" data-action="disable" data-id="${id}">Disable</button>`
+            : `<button class="lg-btn primary" data-action="enable" data-id="${id}">Approve</button>`;
+
+          return `
+            <tr>
+              <td style="font-weight:950;">${id}</td>
+              <td>${u.username || u.name || ""}</td>
+              <td style="color:var(--lg-dim);">${u.email || ""}</td>
+              <td style="font-weight:950;">${u.role || ""}</td>
+              <td>${statusBadge}</td>
+              <td>${btn}</td>
+            </tr>
+          `;
+        }).join("");
+
+        tbody.querySelectorAll("button").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            status.textContent = "";
+            const id = btn.getAttribute("data-id");
+            const action = btn.getAttribute("data-action");
+
+            try{
+              if(action === "disable"){
+                await LG.request("/admin/users/disable", { method:"POST", body:{ userId: id } });
+                status.textContent = "User disabled.";
+              }else{
+                await LG.request("/admin/users/enable", { method:"POST", body:{ userId: id } });
+                status.textContent = "User approved/enabled.";
+              }
+
+              // refresh table
+              const users = await fetchUsers();
+              render(users);
+
+            }catch(err){
+              status.textContent = err.message;
+            }
+          });
+        });
+      }
+
+      try{
+        const users = await fetchUsers();
+        render(users);
+      }catch(err){
+        status.textContent = err.message;
+        render([]);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LogiGuard360 • System Audit</title>
+
+  <!-- <--- ADD YOUR BACKEND HERE --->
+       SINGLE endpoint used:
+       GET /admin/audit
+       Change ONLY if your backend uses different paths. -->
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="assets/app.js" defer></script>
+</head>
+<body data-page="System Audit" data-protected="true">
+  <main class="lg-page">
+    <div class="lg-h1">System Audit</div>
+    <div class="lg-sub">Admin logs (controller: <code>authController.js</code> / <code>reportingController.js</code> depending on your implementation).</div>
+
+    <div class="lg-grid">
+      <section class="lg-card" style="grid-column: span 12;">
+        <h3>Audit log</h3>
+        <table class="lg-table" id="tbl">
+          <thead><tr><th>ID</th><th>Timestamp</th><th>Action</th><th>Actor</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      if(!LG.requireRole(["systemAdministrator"])) return;
+
+      const tbody = document.querySelector("#tbl tbody");
+      function render(logs){
+        tbody.innerHTML = logs.map(l => `
+          <tr>
+            <td style="font-weight:950;">${l.id || l._id || ""}</td>
+            <td style="color:var(--lg-dim);">${new Date(l.timestamp || Date.now()).toLocaleString()}</td>
+            <td>${l.action || ""}</td>
+            <td style="font-weight:950;">${l.actor || ""}</td>
+          </tr>
+        `).join("");
+      }
+
+      try{
+        // <--- ADD YOUR BACKEND HERE --->
+        // GET /admin/audit
+        const data = await LG.request("/admin/audit");
+        render(Array.isArray(data) ? data : (data.items || data.logs || []));
+      }catch(err){
+        render([
+          { id:"A-001", timestamp: new Date().toISOString(), action:"LOGIN", actor:"U-001" },
+          { id:"A-002", timestamp: new Date().toISOString(), action:"ASSIGN_TRAINING", actor:"U-002" },
+          { id:"A-003", timestamp: new Date().toISOString(), action:"REPORT_GENERATED", actor:"U-001" },
+        ]);
+      }
+    });
+  </script>
+</body>
+</html>

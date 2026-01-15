@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LogiGuard360 • Configure Warehouse</title>
+
+  <!-- <--- ADD YOUR BACKEND HERE --->
+       SINGLE endpoint used on this page:
+       POST /manager/warehouse/configure
+       Change ONLY if your warehouseRoutes.js mounts a different path. -->
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="assets/app.js" defer></script>
+</head>
+
+<body data-page="Configure Warehouse" data-protected="true">
+  <main class="lg-page">
+    <div class="lg-h1">Configure Virtual Warehouse</div>
+    <div class="lg-sub">Routes file: <code>warehouseRoutes.js</code>. Service: <code>WarehouseManagerService.js</code>.</div>
+
+    <div class="lg-grid">
+      <section class="lg-card" style="grid-column: span 7;">
+        <h3>Warehouse details</h3>
+
+        <div class="lg-form-row">
+          <div>
+            <label class="lg-k" for="warehouseId">Warehouse ID</label>
+            <input class="lg-input" id="warehouseId" placeholder="Enter Warehouse ID" value="WH-001" />
+          </div>
+          <div>
+            <label class="lg-k" for="capacity">Capacity</label>
+            <input class="lg-input" id="capacity" type="number" placeholder="Enter capacity" value="250" />
+          </div>
+        </div>
+
+        <div class="lg-form-row" style="margin-top: 10px;">
+          <div>
+            <label class="lg-k" for="name">Name</label>
+            <input class="lg-input" id="name" placeholder="Enter warehouse name" value="Main Warehouse" />
+          </div>
+          <div>
+            <label class="lg-k" for="location">Location</label>
+            <input class="lg-input" id="location" placeholder="Enter location" value="Dock A" />
+          </div>
+        </div>
+
+        <button class="lg-btn primary" id="save" style="margin-top: 12px;"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        <div class="lg-note" id="status" style="margin-top: 10px;"></div>
+      </section>
+
+      <section class="lg-card" style="grid-column: span 5;">
+        <h3>Hint</h3>
+        <div class="lg-note">
+          This UI posts to the manager configure endpoint.
+          <!-- <--- ADD YOUR BACKEND HERE ---> -->
+          If your backend uses a different route, update the endpoint in the script below.
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      if(!LG.requireRole(["warehouseManager"])) return;
+
+      const status = document.getElementById("status");
+
+      document.getElementById("save").addEventListener("click", async () => {
+        status.textContent = "";
+
+        try{
+          const payload = {
+            warehouseId: document.getElementById("warehouseId").value.trim(),
+            name: document.getElementById("name").value.trim(),
+            location: document.getElementById("location").value.trim(),
+            capacity: Number(document.getElementById("capacity").value)
+          };
+
+          // <--- ADD YOUR BACKEND HERE --->
+          // POST /manager/warehouse/configure
+          await LG.request("/manager/warehouse/configure", {
+            method: "POST",
+            body: payload
+          });
+
+          status.textContent = "Saved.";
+        }catch(err){
+          status.textContent = err.message + " (check backend route + CORS).";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

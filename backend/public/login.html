@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LogiGuard360 • Login</title>
+
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- Core app -->
+  <script src="assets/app.js" defer></script>
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <style>body{ padding: 0 16px; }</style>
+</head>
+
+<body>
+  <div class="lg-card" style="max-width: 760px; margin: 60px auto;">
+    <div style="display:flex; align-items:center; gap: 12px; margin-bottom: 10px;">
+      <span style="width:14px;height:14px;border-radius:6px;background:linear-gradient(135deg,var(--lg-primary),var(--lg-accent));box-shadow:0 0 18px rgba(0,245,255,0.35);"></span>
+      <div style="font-weight:950;font-size:1.1rem;">LogiGuard360</div>
+    </div>
+
+    <div class="lg-h1">Sign in</div>
+    <div class="lg-sub">Login or create account. New accounts require email verification (2 minutes).</div>
+
+    <div class="lg-grid">
+      <!-- API base -->
+      <div class="lg-card" style="grid-column: span 12; box-shadow:none;">
+        <h3>API Base URL</h3>
+        <div class="lg-note">
+          Recommended: <code>/api</code> (same server). Example: <code>http://localhost:5000/api</code>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+          <input class="lg-input" id="apiBase" placeholder="/api" style="flex:1; min-width: 260px;" />
+          <button class="lg-btn" id="saveApi" type="button"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+      </div>
+
+      <!-- Login -->
+      <div class="lg-card" style="grid-column: span 12; box-shadow:none;">
+        <h3>Login</h3>
+
+        <form id="loginForm" style="display:grid; gap: 10px;">
+          <div class="lg-form-row">
+            <div>
+              <label class="lg-k" for="email">Email</label>
+              <input class="lg-input" id="email" type="email" placeholder="admin@logiguard360.local" required />
+            </div>
+            <div>
+              <label class="lg-k" for="password">Password</label>
+              <input class="lg-input" id="password" type="password" placeholder="Password123!" required />
+            </div>
+          </div>
+          <button class="lg-btn primary" type="submit">
+            <i class="fa-solid fa-right-to-bracket"></i> Sign in
+          </button>
+        </form>
+
+        <!-- Google login (shown under Login too) -->
+        <div style="margin-top: 14px;">
+          <div class="lg-note" style="margin-bottom: 8px; align-items: center;">Or</div>
+
+          <div id="g_id_onload"
+            data-client_id="195764160165-9ogg9q9fptplis86u5pps4kua8uuj278.apps.googleusercontent.com"
+            data-callback="handleGoogleCredential"
+            data-auto_prompt="false"
+            data-ux_mode="popup"
+            data-use_fedcm="false"></div>
+          <div class="g_id_signin"
+               data-type="standard"
+               data-size="large"
+               data-theme="outline"
+               data-text="continue_with"
+               data-shape="pill"></div>
+        </div>
+
+        <hr style="margin:18px 0; border:0; border-top:1px solid rgba(255,255,255,0.12);" />
+
+        <!-- Create account (OTP) -->
+        <h3>Create account</h3>
+        <form id="registerForm" style="display:grid; gap: 10px;">
+          <div class="lg-form-row">
+            <div>
+              <label class="lg-k" for="r_username">Username</label>
+              <input class="lg-input" id="r_username" placeholder="Nischal" required />
+            </div>
+            <div>
+              <label class="lg-k" for="r_role">Role</label>
+              <select class="lg-input" id="r_role" name="role">
+                <option value="logisticsStaff">Logistics Staff</option>
+                <option value="warehouseManager">Warehouse Manager</option>
+                <option value="systemAdministrator">System Administrator</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="lg-form-row">
+            <div>
+              <label class="lg-k" for="r_email">Email</label>
+              <input class="lg-input" id="r_email" type="email" placeholder="you@example.com" required />
+            </div>
+            <div>
+              <label class="lg-k" for="r_password">Password</label>
+              <input class="lg-input" id="r_password" type="password" placeholder="••••••••" required />
+            </div>
+          </div>
+
+          <button class="lg-btn" type="submit">
+            <i class="fa-solid fa-envelope"></i> Send verification code
+          </button>
+        </form>
+
+        <!-- Verification step -->
+        <div id="verifyBox" style="display:none; margin-top: 14px;">
+          <div class="lg-note">
+            We sent a 6-digit code to <b id="verifyEmail">—</b>. Enter it below (expires in 2 minutes).
+          </div>
+
+          <div class="lg-form-row" style="margin-top:10px;">
+            <div>
+              <label class="lg-k" for="v_code">Verification code</label>
+              <input class="lg-input" id="v_code" placeholder="123456" inputmode="numeric" />
+            </div>
+
+            <div style="display:flex; align-items:end; gap:10px;">
+              <button class="lg-btn primary" id="verifyBtn" type="button">
+                <i class="fa-solid fa-check"></i> Verify & Create
+              </button>
+              <button class="lg-btn" id="resendBtn" type="button">
+                <i class="fa-solid fa-rotate"></i> Resend
+              </button>
+            </div>
+          </div>
+
+          <div class="lg-note" id="verifyStatus" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="lg-note" style="margin-top: 12px;">
+          Routes:
+          <br>• <code>POST /auth/login</code>
+          <br>• <code>POST /auth/register</code> (send code)
+          <br>• <code>POST /auth/register/verify</code> (verify + create)
+          <br>• <code>POST /auth/google</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Google callback MUST be global
+    window.handleGoogleCredential = async (response) => {
+  try {
+    const data = await LG.request("/auth/google", {
+      method: "POST",
+      body: { credential: response.credential }
+    });
+
+    // Only save token if backend approved it
+    if(!data?.token) throw new Error("Account pending admin approval");
+
+    LG.saveAuth(data.token, data.user);
+    window.location.href = "/index.html";
+
+  } catch (err) {
+    // This will show: Account pending admin approval
+    LG.toast("error", err.message);
+  }
+};
+
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const apiBase = document.getElementById("apiBase");
+      apiBase.value = LG.state.apiBase || "/api";
+
+      document.getElementById("saveApi").addEventListener("click", () => {
+        LG.setApiBase((apiBase.value || "/api").trim());
+        LG.toast("info", "API base saved: " + LG.state.apiBase);
+      });
+
+      // LOGIN
+      document.getElementById("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          const email = document.getElementById("email").value.trim();
+          const password = document.getElementById("password").value;
+
+          const data = await LG.request("/auth/login", { method: "POST", body: { email, password } });
+          if(!data?.token) throw new Error("Invalid login or token missing");
+
+          LG.saveAuth(data.token, data.user);
+          window.location.href = "/index.html";
+        } catch (err) {
+          LG.toast("error", err.message);
+        }
+      });
+
+      // REGISTER OTP (Step 1 + Step 2)
+      let pendingSignup = null;
+
+      document.getElementById("registerForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          const username = document.getElementById("r_username").value.trim();
+          const role = document.getElementById("r_role").value;
+          const email = document.getElementById("r_email").value.trim();
+          const password = document.getElementById("r_password").value;
+
+          pendingSignup = { username, role, email, password };
+
+          const resp = await LG.request("/auth/register", { method: "POST", body: pendingSignup });
+
+          document.getElementById("verifyEmail").textContent = resp.email || email;
+          document.getElementById("verifyBox").style.display = "block";
+          document.getElementById("verifyStatus").textContent = "Code sent. Check your email (and spam).";
+
+          // lock fields (optional)
+          ["r_username","r_role","r_email","r_password"].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.disabled = true;
+          });
+
+        } catch (err) {
+          LG.toast("error", err.message);
+        }
+      });
+
+      document.getElementById("verifyBtn").addEventListener("click", async () => {
+        const status = document.getElementById("verifyStatus");
+        status.textContent = "";
+        try {
+          const code = document.getElementById("v_code").value.trim();
+          if(!pendingSignup?.email) throw new Error("Send code first.");
+          if(!code) throw new Error("Enter the 6-digit code.");
+
+          const data = await LG.request("/auth/register/verify", {
+            method: "POST",
+            body: { email: pendingSignup.email, code }
+          });
+
+          if(!data?.token) throw new Error("Verification failed (token missing)");
+          LG.saveAuth(data.token, data.user);
+          window.location.href = "/index.html";
+        } catch (err) {
+          status.textContent = err.message;
+        }
+      });
+
+      document.getElementById("resendBtn").addEventListener("click", async () => {
+        const status = document.getElementById("verifyStatus");
+        status.textContent = "";
+        try {
+          if(!pendingSignup) throw new Error("Nothing to resend. Fill the form first.");
+          await LG.request("/auth/register", { method: "POST", body: pendingSignup });
+          status.textContent = "Code resent. Check your email.";
+        } catch (err) {
+          status.textContent = err.message;
+        }
+      });
+
+      // If already logged in
+      if (LG.isAuthed()) window.location.href = "/index.html";
+    });
+  </script>
+</body>
+</html>

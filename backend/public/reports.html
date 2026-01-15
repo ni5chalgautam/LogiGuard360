@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LogiGuard360 • Reports</title>
+
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="assets/app.js" defer></script>
+
+  
+  <style>
+    .lg-report-cards{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .lg-report-card{
+      padding:12px;
+      border-radius:14px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .lg-report-card .k{ opacity:.75; font-size:.85rem; }
+    .lg-report-card .v{ font-size:1.1rem; font-weight:900; margin-top:4px; }
+
+    .lg-report-tablewrap{
+      overflow:auto;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,0.08);
+    }
+    .lg-report-table{ width:100%; border-collapse:collapse; min-width:720px; }
+    .lg-report-table th, .lg-report-table td{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,0.08);
+      vertical-align:top;
+    }
+    .lg-report-table th{ text-align:left; opacity:.8; }
+
+    .lg-pill{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:.85rem;
+      border:1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05);
+      white-space:nowrap;
+    }
+    .lg-pill-high{ background: rgba(255,0,0,0.12); }
+    .lg-pill-medium{ background: rgba(255,165,0,0.12); }
+    .lg-pill-low{ background: rgba(0,255,170,0.12); }
+
+    .lg-report-actions{
+      display:flex; gap:8px; align-items:center; justify-content:flex-end;
+      margin-bottom:10px;
+    }
+  </style>
+</head>
+
+<body data-page="Reports" data-protected="true">
+  <main class="lg-page">
+    <div class="lg-h1">Reports</div>
+    <div class="lg-sub">
+      Generates Warehouse/User reports + Quiz Performance Report (overall score).
+    </div>
+
+    <div class="lg-grid">
+      <section class="lg-card" style="grid-column: span 6;">
+        <h3>Generate report</h3>
+
+        <label class="lg-k" for="type">Report type</label>
+        <select class="lg-input" id="type" name="type">
+          <option value="warehouse">Warehouse Report</option>
+          <option value="user">User Activity Report</option>
+          <option value="quiz">Quiz Performance Report</option>
+        </select>
+
+        <div id="warehouseBox" style="margin-top: 10px;">
+          <label class="lg-k" for="warehouseId">Warehouse ID</label>
+          <input class="lg-input" id="warehouseId" placeholder="WH-001" value="WH-001" />
+        </div>
+
+        <div id="userBox" style="margin-top: 10px; display:none;">
+          <label class="lg-k" for="userId">User ID</label>
+          <input class="lg-input" id="userId" placeholder="U-001" value="" />
+          <div class="lg-note" style="margin-top:8px;">
+            For <b>Quiz Report</b>: Admin/Manager can enter any User ID.
+            For staff: leave blank (it will show your own score).
+          </div>
+        </div>
+
+        <div class="lg-form-row" style="margin-top: 10px;">
+          <div>
+            <label class="lg-k" for="startDate">Start date</label>
+            <input class="lg-input" type="date" id="startDate" name="startDate" />
+          </div>
+          <div>
+            <label class="lg-k" for="endDate">End date</label>
+            <input class="lg-input" type="date" id="endDate" name="endDate" />
+          </div>
+        </div>
+
+        <button class="lg-btn primary" id="gen" style="margin-top: 12px;">
+          <i class="fa-solid fa-file-lines"></i> Generate
+        </button>
+
+        <div class="lg-note" id="status" style="margin-top: 10px;"></div>
+      </section>
+
+      <section class="lg-card" style="grid-column: span 6;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <h3 style="margin:0;">Report output</h3>
+          <div class="lg-report-actions">
+            <button class="lg-btn" id="toggleJson" type="button" style="display:none;">
+              <i class="fa-solid fa-code"></i> View JSON
+            </button>
+          </div>
+        </div>
+
+        <div class="lg-note" id="outEmpty" style="margin-top:10px;">Generate a report to view it here.</div>
+
+        <!-- ✅ formatted output -->
+        <div id="out" style="display:none; margin-top:10px;"></div>
+
+        <!-- ✅ json fallback -->
+        <pre id="outJson" style="display:none; white-space:pre-wrap; color: var(--lg-text); margin:10px 0 0;"></pre>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      if(!LG.requireAuth()) return;
+
+      const type = document.getElementById("type");
+      const wBox = document.getElementById("warehouseBox");
+      const uBox = document.getElementById("userBox");
+      const out = document.getElementById("out");
+      const outJson = document.getElementById("outJson");
+      const outEmpty = document.getElementById("outEmpty");
+      const status = document.getElementById("status");
+      const userIdInput = document.getElementById("userId");
+      const toggleJson = document.getElementById("toggleJson");
+
+      const myRole = LG.role();
+      const isAdminOrMgr = ["systemAdministrator","warehouseManager"].includes(myRole);
+
+      function escapeHtml(s){
+        return String(s ?? "")
+          .replaceAll("&","&amp;")
+          .replaceAll("<","&lt;")
+          .replaceAll(">","&gt;")
+          .replaceAll('"',"&quot;")
+          .replaceAll("'","&#039;");
+      }
+
+      function resetOutput(){
+        out.style.display = "none";
+        outJson.style.display = "none";
+        toggleJson.style.display = "none";
+        outEmpty.style.display = "block";
+        outEmpty.textContent = "Generate a report to view it here.";
+      }
+
+      function setOutputHtml(html, jsonForToggle){
+        outEmpty.style.display = "none";
+        out.style.display = "block";
+        outJson.style.display = "none";
+        out.innerHTML = html;
+
+        if(jsonForToggle){
+          toggleJson.style.display = "inline-flex";
+          toggleJson.dataset.json = JSON.stringify(jsonForToggle, null, 2);
+          toggleJson.dataset.mode = "html";
+          toggleJson.innerHTML = '<i class="fa-solid fa-code"></i> View JSON';
+        }
+      }
+
+      function setOutputJson(data){
+        outEmpty.style.display = "none";
+        out.style.display = "none";
+        outJson.style.display = "block";
+        outJson.textContent = JSON.stringify(data, null, 2);
+
+        toggleJson.style.display = "inline-flex";
+        toggleJson.dataset.json = outJson.textContent;
+        toggleJson.dataset.mode = "json";
+        toggleJson.innerHTML = '<i class="fa-solid fa-table"></i> View Report';
+      }
+
+      toggleJson.addEventListener("click", () => {
+        const mode = toggleJson.dataset.mode;
+        const json = toggleJson.dataset.json ? JSON.parse(toggleJson.dataset.json) : null;
+        if(!json) return;
+
+        if(mode === "html"){
+          // switch to json
+          setOutputJson(json);
+        }else{
+          // switch back to formatted
+          renderReport(json);
+        }
+      });
+
+      function renderWarehouseReport(resp){
+        const r = resp.data;
+        const rows = (r.hotspots || []).map(h => {
+          const risk = (h.riskLevel || "").toLowerCase();
+          const riskClass = risk === "high" ? "lg-pill-high" : risk === "medium" ? "lg-pill-medium" : "lg-pill-low";
+          return `
+            <tr>
+              <td>${escapeHtml(h.hotspotId || "")}</td>
+              <td>${escapeHtml(h.zone || "")}</td>
+              <td><span class="lg-pill ${riskClass}">${escapeHtml(h.riskLevel || "")}</span></td>
+              <td>${escapeHtml(h.description || "")}</td>
+            </tr>
+          `;
+        }).join("");
+
+        setOutputHtml(`
+          <div class="lg-report-cards">
+            <div class="lg-report-card"><div class="k">Report ID</div><div class="v">${escapeHtml(resp.reportId || "")}</div></div>
+            <div class="lg-report-card"><div class="k">Warehouse</div><div class="v">${escapeHtml(r.warehouseId || "")}</div></div>
+            <div class="lg-report-card"><div class="k">Hotspots</div><div class="v">${Number(r.hotspotCount || 0)}</div></div>
+            <div class="lg-report-card"><div class="k">High Risk</div><div class="v">${Number(r.highRisk || 0)}</div></div>
+          </div>
+
+          <div class="lg-report-tablewrap">
+            <table class="lg-report-table">
+              <thead>
+                <tr>
+                  <th>Hotspot ID</th>
+                  <th>Zone</th>
+                  <th>Risk</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows || `<tr><td colspan="4" class="lg-note">No hotspots found.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        `, resp);
+      }
+
+      function renderQuizReport(data){
+        const byRows = (data.byHotspot || []).map(x => `
+          <tr>
+            <td>${escapeHtml(x.hotspotName || x.hotspotKey || "")}</td>
+            <td>${Number(x.played || 0)}</td>
+            <td>${Number(x.avgPercent || 0)}%</td>
+          </tr>
+        `).join("");
+
+        const recentRows = (data.recent || []).map(a => `
+          <tr>
+            <td>${escapeHtml(a.hotspotName || a.hotspotKey || "")}</td>
+            <td>${Number(a.correct || 0)}/${Number(a.total || 0)}</td>
+            <td>${Number(a.percent || 0)}%</td>
+          </tr>
+        `).join("");
+
+        setOutputHtml(`
+          <div class="lg-report-cards">
+            <div class="lg-report-card"><div class="k">User</div><div class="v">${escapeHtml(data.userId || "")}</div></div>
+            <div class="lg-report-card"><div class="k">Quizzes Played</div><div class="v">${Number(data.quizzesPlayed || 0)}</div></div>
+            <div class="lg-report-card"><div class="k">Total Correct</div><div class="v">${Number(data.totalCorrect || 0)}</div></div>
+            <div class="lg-report-card"><div class="k">Overall Score</div><div class="v">${Number(data.overallPercent || 0)}%</div></div>
+          </div>
+
+          <div class="lg-note" style="margin: 10px 0 8px;">By Hotspot</div>
+          <div class="lg-report-tablewrap">
+            <table class="lg-report-table">
+              <thead><tr><th>Hotspot</th><th>Played</th><th>Avg %</th></tr></thead>
+              <tbody>
+                ${byRows || `<tr><td colspan="3" class="lg-note">No quiz attempts found.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="lg-note" style="margin: 12px 0 8px;">Recent Attempts</div>
+          <div class="lg-report-tablewrap">
+            <table class="lg-report-table">
+              <thead><tr><th>Hotspot</th><th>Score</th><th>%</th></tr></thead>
+              <tbody>
+                ${recentRows || `<tr><td colspan="3" class="lg-note">No recent attempts.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        `, data);
+      }
+
+      function renderReport(data){
+        // Warehouse report format: { type:'warehouse', reportId:'...', data:{hotspots:[...]} }
+        if(data?.type === "warehouse" && data?.data?.hotspots){
+          return renderWarehouseReport(data);
+        }
+
+        // Quiz report format: { overallPercent, byHotspot, recent, ... }
+        if(typeof data?.overallPercent === "number" && Array.isArray(data?.byHotspot)){
+          return renderQuizReport(data);
+        }
+
+        // Anything else -> JSON fallback (ex: user activity report)
+        return setOutputJson(data);
+      }
+
+      function applyRoleUI(){
+        if(isAdminOrMgr){
+          type.disabled = false;
+          return;
+        }
+
+        // logisticsStaff: quiz-only
+        type.value = "quiz";
+        type.disabled = true;
+
+        // remove other options visually (extra safety)
+        Array.from(type.options).forEach(opt => {
+          if(opt.value !== "quiz") opt.remove();
+        });
+
+        status.textContent = "Quiz report only (staff access).";
+      }
+
+      function applyTypeUI(){
+        if(type.value === "warehouse"){
+          wBox.style.display = "block";
+          uBox.style.display = "none";
+        }else{
+          wBox.style.display = "none";
+          uBox.style.display = "block";
+          userIdInput.disabled = !isAdminOrMgr; // staff can't request other userId
+          if(!isAdminOrMgr) userIdInput.value = "";
+        }
+      }
+
+      applyRoleUI();
+      applyTypeUI();
+
+      type.addEventListener("change", applyTypeUI);
+
+      document.getElementById("gen").addEventListener("click", async () => {
+        status.textContent = "";
+        resetOutput();
+
+        const warehouseId = document.getElementById("warehouseId").value.trim();
+        const userId = userIdInput.value.trim();
+        const startDate = document.getElementById("startDate").value;
+        const endDate = document.getElementById("endDate").value;
+
+        try{
+          // staff safety even if someone hacks DOM
+          if(!isAdminOrMgr && type.value !== "quiz"){
+            throw new Error("Staff can only generate Quiz Performance Report.");
+          }
+
+          if(type.value === "quiz"){
+            const qs = new URLSearchParams({
+              ...(isAdminOrMgr && userId ? { userId } : {}),
+              ...(startDate ? { startDate } : {}),
+              ...(endDate ? { endDate } : {})
+            }).toString();
+
+            const data = await LG.request(`/reports/quiz${qs ? "?" + qs : ""}`);
+            renderReport(data);
+            status.textContent = "Quiz report generated.";
+            return;
+          }
+
+          const payload = { type: type.value, warehouseId, userId, startDate, endDate };
+          const data = await LG.request("/reports/generate", { method: "POST", body: payload });
+          renderReport(data);
+          status.textContent = "Report generated.";
+        }catch(err){
+          status.textContent = err.message;
+          setOutputJson({ error: err.message });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

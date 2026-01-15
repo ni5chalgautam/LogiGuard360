@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LogiGuard360 • Dashboard</title>
+
+  <!-- <--- ADD YOUR BACKEND HERE 
+       SINGLE endpoint used on this page:
+       GET /dashboard
+       Change ONLY if your backend uses a different path for dashboard summary. -->
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="assets/app.js" defer></script>
+</head>
+
+<body data-page="Dashboard" data-protected="true">
+  <main class="lg-page">
+    <div class="lg-h1">Dashboard</div>
+    <div class="lg-sub">
+      Matches your backend structure: <code>models</code>, <code>routes</code>, <code>controllers</code>, and services for Admin/Manager/Staff.
+    </div>
+
+    <div class="lg-grid">
+      <section class="lg-card" style="grid-column: span 6;">
+        <h3>Account</h3>
+        <div class="lg-kv"><div class="lg-k">Username</div><div class="lg-v" id="u_name">—</div></div>
+        <div class="lg-kv"><div class="lg-k">User ID</div><div class="lg-v" id="u_id">—</div></div>
+        <div class="lg-kv"><div class="lg-k">Email</div><div class="lg-v" id="u_email">—</div></div>
+        <div class="lg-kv"><div class="lg-k">Role</div><div class="lg-v" id="u_role">—</div></div>
+        <div class="lg-kv"><div class="lg-k">Session</div><div class="lg-v">Active</div></div>
+      </section>
+
+      <section class="lg-card" style="grid-column: span 6;">
+        <h3>System snapshot</h3>
+        <div class="lg-note">
+          <b>Backend call:</b> <code>GET /dashboard</code>
+          <!-- <--- ADD YOUR BACKEND HERE ---> -->
+        </div>
+        <div class="lg-kv"><div class="lg-k">Warehouses</div><div class="lg-v" id="s_wh">—</div></div>
+        <div class="lg-kv"><div class="lg-k">Hotspots</div><div class="lg-v" id="s_hs">—</div></div>
+        <div class="lg-kv"><div class="lg-k">Training assigned</div><div class="lg-v" id="s_ta">—</div></div>
+        <div class="lg-kv"><div class="lg-k">Completion rate</div><div class="lg-v" id="s_cr">—</div></div>
+      </section>
+
+      <section class="lg-card" style="grid-column: span 12;">
+        <h3>Quick actions</h3>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px;">
+          <a class="lg-btn primary" href="training.html"><i class="fa-solid fa-graduation-cap"></i> Training</a>
+          <a class="lg-btn" href="warehouse.html"><i class="fa-solid fa-warehouse"></i> Warehouse</a>
+          <a class="lg-btn" href="feedback.html"><i class="fa-solid fa-flag"></i> Feedback</a>
+          <a class="lg-btn" href="reports.html" id="reportsBtn"><i class="fa-solid fa-chart-column"></i> Reports</a>
+        </div>
+        <div class="lg-note" style="margin-top: 10px;">
+          Reports + Hotspot Detector are visible for <b>SystemAdministrator</b> and <b>WarehouseManager</b> roles.
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      document.getElementById("u_name").textContent = LG.state.user?.username || "User";
+      document.getElementById("u_id").textContent = LG.state.user?.userId || LG.state.user?._id || LG.state.user?.id || "—";
+      document.getElementById("u_email").textContent = LG.state.user?.email || "—";
+      document.getElementById("u_role").textContent = LG.role();
+
+      // Hide reports button for logistics staff
+      if (LG.role() === "logisticsStaff") {
+        document.getElementById("reportsBtn").style.display = "none";
+      }
+
+      try{
+        // <--- ADD YOUR BACKEND HERE --->
+        // GET /dashboard
+        // Expected response example:
+        // { warehouses: 1, hotspots: 8, trainingAssigned: 6, completionRate: 0.62 }
+        const data = await LG.request("/dashboard");
+
+        document.getElementById("s_wh").textContent = data.warehouses ?? data.totalWarehouses ?? "—";
+        document.getElementById("s_hs").textContent = data.hotspots ?? data.totalHotspots ?? "—";
+        document.getElementById("s_ta").textContent = data.trainingAssigned ?? data.assigned ?? "—";
+
+        const cr = data.completionRate ?? data.completion ?? null;
+        document.getElementById("s_cr").textContent =
+          cr != null ? Math.round(Number(cr) * 100) + "%" : "—";
+      }catch(err){
+        // If backend not connected or endpoint missing, show placeholders
+        document.getElementById("s_wh").textContent = "1";
+        document.getElementById("s_hs").textContent = "8";
+        document.getElementById("s_ta").textContent = "6";
+        document.getElementById("s_cr").textContent = "62%";
+      }
+    });
+  </script>
+</body>
+</html>

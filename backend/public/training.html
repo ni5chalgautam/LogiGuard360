@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LogiGuard360 • Training</title>
+
+  <!-- <--- ADD YOUR BACKEND HERE --->
+       <!--SINGLE endpoints used on this page:
+       GET  /training/content
+       POST /training/assign
+       GET  /training/progress?userId=...&contentId=...
+       Change ONLY if your trainingRoutes.js uses different paths. -->
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="assets/app.js" defer></script>
+</head>
+
+<body data-page="Training" data-protected="true">
+  <main class="lg-page">
+    <div class="lg-h1">Training</div>
+    <div class="lg-sub">Routes file: <code>trainingRoutes.js</code>. Controllers expose training content + assignment.</div>
+
+    <div class="lg-grid">
+      <section class="lg-card" style="grid-column: span 7;">
+        <h3>Training content</h3>
+        <table class="lg-table" id="contentTable">
+          <thead><tr><th>ID</th><th>Title</th><th>Type</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="lg-card" style="grid-column: span 5;">
+        <h3>Details</h3>
+        <div class="lg-note" id="emptyMsg">Select a row to view details.</div>
+
+        <div id="detail" style="display:none;">
+          <div class="lg-kv"><div class="lg-k">Title</div><div class="lg-v" id="d_title">—</div></div>
+          <div class="lg-kv"><div class="lg-k">Type</div><div class="lg-v" id="d_type">—</div></div>
+          <div class="lg-kv"><div class="lg-k">Description</div><div class="lg-v" id="d_desc" style="max-width:260px; text-align:right;">—</div></div>
+
+          <div id="assignBox" style="margin-top: 12px; display:none;">
+            <label class="lg-k" for="assignUserId">Assign to userId</label>
+            <input class="lg-input" id="assignUserId" placeholder="U-001" />
+            <button class="lg-btn primary" id="assignBtn" style="margin-top: 10px;">
+              <i class="fa-solid fa-paper-plane"></i> Assign training
+            </button>
+          </div>
+
+          <button class="lg-btn" id="progressBtn" style="margin-top: 12px;">
+            <i class="fa-solid fa-chart-line"></i> Track my progress
+          </button>
+
+          <div class="lg-note" id="status" style="margin-top: 10px;"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const tbody = document.querySelector("#contentTable tbody");
+      const empty = document.getElementById("emptyMsg");
+      const detail = document.getElementById("detail");
+      const status = document.getElementById("status");
+
+      const canAssign = (LG.role() === "systemAdministrator" || LG.role() === "warehouseManager");
+      if(canAssign) document.getElementById("assignBox").style.display = "block";
+
+      let selected = null;
+
+      function renderRows(items){
+        tbody.innerHTML = items.map(c => `
+          <tr>
+            <td style="font-weight:950;">${c.contentId || c._id || c.id || ""}</td>
+            <td>${c.title || c.name || ""}</td>
+            <td style="color:var(--lg-dim); font-weight:900;">${c.type || c.category || ""}</td>
+            <td><button class="lg-btn" data-id="${c.contentId || c._id || c.id}">View</button></td>
+          </tr>
+        `).join("");
+
+        tbody.querySelectorAll("button").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-id");
+            selected = items.find(x => (x.contentId || x._id || x.id) == id);
+
+            empty.style.display = "none";
+            detail.style.display = "block";
+            status.textContent = "";
+
+            document.getElementById("d_title").textContent = selected.title || selected.name || "—";
+            document.getElementById("d_type").textContent = selected.type || selected.category || "—";
+            document.getElementById("d_desc").textContent = selected.description || selected.desc || "—";
+          });
+        });
+      }
+
+      try{
+        // <--- ADD YOUR BACKEND HERE --->
+        // GET /training/content
+        const data = await LG.request("/training/content");
+
+        const items = Array.isArray(data) ? data : (data.items || data.content || []);
+        renderRows(items);
+      }catch(err){
+        // If backend not connected, show sample rows
+        renderRows([
+          { contentId:"TC-001", title:"Phishing basics", type:"micro", description:"Recognise phishing indicators and report safely." },
+          { contentId:"TC-002", title:"USB safety", type:"micro", description:"How to handle unknown USB devices at work." },
+          { contentId:"TC-003", title:"Secure terminals", type:"scenario", description:"Lock screens, avoid shoulder surfing, protect credentials." },
+        ]);
+      }
+
+      document.getElementById("assignBtn").addEventListener("click", async () => {
+        if(!selected) return;
+
+        const userId = document.getElementById("assignUserId").value.trim();
+        if(!userId) return status.textContent = "Enter userId.";
+
+        try{
+          // <--- ADD YOUR BACKEND HERE --->
+          // POST /training/assign
+          // Expected body: { userId, contentId }
+          await LG.request("/training/assign", {
+            method:"POST",
+            body:{ userId, contentId: selected.contentId || selected._id || selected.id }
+          });
+
+          status.textContent = "Assigned successfully.";
+        }catch(err){
+          status.textContent = err.message;
+        }
+      });
+
+      document.getElementById("progressBtn").addEventListener("click", async () => {
+        if(!selected) return;
+
+        try{
+          // <--- ADD YOUR BACKEND HERE --->
+          // GET /training/progress?userId=...&contentId=...
+          const qs = `userId=${encodeURIComponent(LG.userId())}&contentId=${encodeURIComponent(selected.contentId || selected._id || selected.id)}`;
+          const data = await LG.request("/training/progress?" + qs);
+
+          const p = data?.progress ?? data ?? 0;
+          status.textContent = "Progress: " + Math.round(Number(p) * 100) + "%";
+        }catch(err){
+          status.textContent = err.message + " (progress endpoint missing?)";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

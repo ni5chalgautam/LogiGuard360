@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LogiGuard360 • Warehouse 360</title>
+
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- Local Pannellum (self-hosted) -->
+  <link rel="stylesheet" href="assets/pannellum/pannellum.css">
+  <script src="assets/pannellum/pannellum.js" defer></script>
+
+  <script src="assets/app.js" defer></script>
+
+  <style>
+    .lg-viewer {
+      width: 100%;
+      height: 520px;
+      border-radius: 18px;
+      border: 1px solid rgba(0,245,255,0.18);
+      overflow: hidden;
+      background: rgba(0,0,0,0.25);
+      box-shadow: var(--lg-shadow);
+    }
+
+    .lg-spot-panel {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 14px;
+    }
+
+    .lg-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 950;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      font-size: .85rem;
+    }
+
+    .lg-badge.high { border-color: rgba(255,0,110,0.40); background: rgba(255,0,110,0.12); }
+    .lg-badge.medium { border-color: rgba(0,245,255,0.25); background: rgba(0,245,255,0.08); }
+    .lg-badge.low { border-color: rgba(34,197,94,0.25); background: rgba(34,197,94,0.10); }
+
+    /* Hotspot dot */
+    .lg-hotspot {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,0.9);
+      box-shadow: 0 0 18px rgba(0,245,255,0.35);
+      cursor: pointer;
+    }
+    .lg-hotspot.high { background: rgba(255,0,110,0.92); box-shadow: 0 0 18px rgba(255,0,110,0.45); }
+    .lg-hotspot.medium { background: rgba(0,245,255,0.92); }
+    .lg-hotspot.low { background: rgba(34,197,94,0.92); box-shadow: 0 0 18px rgba(34,197,94,0.45); }
+
+    /* Quiz modal */
+    .lg-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      padding: 18px;
+    }
+    .lg-modal.open { display: flex; }
+    .lg-modal-card {
+      width: min(860px, 100%);
+      border-radius: 18px;
+      border: 1px solid rgba(0,245,255,0.18);
+      background: rgba(10,10,15,0.92);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--lg-shadow);
+      padding: 16px;
+    }
+    .lg-choice {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(0,245,255,0.16);
+      background: rgba(0,0,0,0.18);
+      cursor: pointer;
+      font-weight: 800;
+      margin-top: 10px;
+    }
+    .lg-choice:hover { background: rgba(0,245,255,0.08); }
+    .lg-choice.correct { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.12); }
+    .lg-choice.wrong { border-color: rgba(255,0,110,0.35); background: rgba(255,0,110,0.12); }
+  </style>
+</head>
+
+<body data-page="Warehouse" data-protected="true">
+  <main class="lg-page">
+    <div class="lg-h1">Virtual Warehouse • 360 View</div>
+    <div class="lg-sub">
+      Click hotspots inside the 360° warehouse to see risk details and play a quick quiz.
+    </div>
+
+    <div class="lg-grid">
+      <section class="lg-card" style="grid-column: span 4;">
+        <h3>Warehouses</h3>
+        <table class="lg-table" id="whTable">
+          <thead><tr><th>ID</th><th>Name</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <div style="margin-top: 12px;">
+          <button class="lg-btn primary" id="statusBtn"><i class="fa-solid fa-signal"></i> View status</button>
+          <div class="lg-note" id="statusText" style="margin-top: 10px;"></div>
+        </div>
+
+        <div class="lg-note" style="margin-top: 12px;">
+          Put panorama here:
+          <br><code>assets/panorama/WH-001.jpg</code>
+        </div>
+      </section>
+
+      <section class="lg-card" style="grid-column: span 8;">
+        <h3>360° Warehouse View</h3>
+        <div class="lg-note" id="viewerHint">
+          Select a warehouse to load the 360 view. Then click hotspots.
+        </div>
+        <div id="viewer" class="lg-viewer" style="margin-top: 10px;"></div>
+
+        <div class="lg-note" style="margin-top: 10px;">
+          Hotspots are FIXED to match the WH-001.jpg hotspot positions (poster image).
+        </div>
+      </section>
+
+      <section class="lg-card" style="grid-column: span 12;">
+        <h3>Selected Spot</h3>
+        <div class="lg-spot-panel">
+          <div>
+            <div class="lg-note" id="spotEmpty">Click a hotspot in the 360 view to see details here.</div>
+
+            <div id="spotBox" style="display:none;">
+              <div class="lg-kv"><div class="lg-k">Hotspot</div><div class="lg-v" id="spotId">—</div></div>
+              <div class="lg-kv"><div class="lg-k">Name</div><div class="lg-v" id="spotZone">—</div></div>
+              <div class="lg-kv"><div class="lg-k">Risk</div><div class="lg-v" id="spotRisk">—</div></div>
+              <div class="lg-kv"><div class="lg-k">Description</div><div class="lg-v" id="spotDesc" style="max-width:520px; text-align:right;">—</div></div>
+
+              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px;">
+                <button class="lg-btn primary" id="startQuizBtn"><i class="fa-solid fa-gamepad"></i> Start spot quiz</button>
+                <button class="lg-btn" id="clearSpotBtn"><i class="fa-solid fa-xmark"></i> Clear</button>
+              </div>
+
+              <div class="lg-note" id="spotStatus" style="margin-top: 10px;"></div>
+            </div>
+          </div>
+
+          <div>
+            <h3 style="margin-top:0;">How this “game” works</h3>
+            <div class="lg-note">
+              1) Choose warehouse → loads 360 image<br>
+              2) Click hotspot → learn risk + mitigation<br>
+              3) Play quick quiz → build cyber-awareness for logistics staff
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Quiz Modal -->
+  <div class="lg-modal" id="quizModal" aria-hidden="true">
+    <div class="lg-modal-card">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+        <div>
+          <div style="font-weight:950; font-size:1.1rem;">Spot Quiz</div>
+          <div class="lg-note" id="quizMeta">—</div>
+        </div>
+        <button class="lg-btn danger" id="quizClose"><i class="fa-solid fa-xmark"></i> Close</button>
+      </div>
+
+      <div style="margin-top: 12px;">
+        <div style="font-weight:950;" id="quizQ">—</div>
+        <div id="quizChoices"></div>
+
+        <div class="lg-note" id="quizExplain" style="margin-top: 10px;"></div>
+
+        <div style="display:flex; gap:10px; justify-content:space-between; align-items:center; margin-top: 14px; flex-wrap:wrap;">
+          <div class="lg-badge" id="quizScore">Score: 0/0</div>
+          <button class="lg-btn" id="quizNext"><i class="fa-solid fa-arrow-right"></i> Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ REPLACE ONLY THIS PART inside your <script> in warehouse.html -->
+
+<script>
+  document.addEventListener("DOMContentLoaded", async () => {
+    const whBody = document.querySelector("#whTable tbody");
+    const statusText = document.getElementById("statusText");
+
+    const spotEmpty = document.getElementById("spotEmpty");
+    const spotBox = document.getElementById("spotBox");
+    const spotId = document.getElementById("spotId");
+    const spotZone = document.getElementById("spotZone");
+    const spotRisk = document.getElementById("spotRisk");
+    const spotDesc = document.getElementById("spotDesc");
+    const spotStatus = document.getElementById("spotStatus");
+
+    const viewerEl = document.getElementById("viewer");
+    const viewerHint = document.getElementById("viewerHint");
+
+    const quizModal = document.getElementById("quizModal");
+    const quizClose = document.getElementById("quizClose");
+    const quizQ = document.getElementById("quizQ");
+    const quizChoices = document.getElementById("quizChoices");
+    const quizExplain = document.getElementById("quizExplain");
+    const quizNext = document.getElementById("quizNext");
+    const quizScore = document.getElementById("quizScore");
+    const quizMeta = document.getElementById("quizMeta");
+
+    let warehouses = [];
+    let selectedWarehouse = null;
+    let selectedSpot = null;
+    let viewer = null;
+
+    // ✅ NEW: safe HTML escape
+    function escapeHtml(s){
+      return String(s ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    // ✅ FIXED positions (derived from WH-001.jpg hotspot locations)
+    const FIXED = [
+      { key:"hacked_cctv",      hotspotId:"HS-CCTV",   name:"Hacked CCTV",       riskLevel:"High",   description:"CCTV/IoT devices with default passwords or exposed ports can be hijacked. Use strong credentials, isolate IoT VLAN, disable defaults.", pitch: 35.7461, yaw: -70.5341 },
+      { key:"phishing_emails",  hotspotId:"HS-PHISH",  name:"Phishing Emails",   riskLevel:"High",   description:"Phishing emails trick staff into clicking malicious links or sharing credentials. Verify sender, don’t click unknown links, report suspicious messages.", pitch:  7.1026, yaw:-123.4834 },
+      { key:"unsecured_wifi",   hotspotId:"HS-WIFI",   name:"Unsecured Wi-Fi",   riskLevel:"Medium", description:"Open/weak Wi-Fi can be used for interception and unauthorized access. Use WPA2/WPA3, strong passphrase, separate guest network.", pitch:-13.1815, yaw: -94.3572 },
+      { key:"data_theft",       hotspotId:"HS-DATA",   name:"Data Theft",        riskLevel:"High",   description:"Sensitive warehouse/shipping data can be stolen via weak access control. Use least privilege, encryption, and audit logs.", pitch:  7.8460, yaw:  29.0499 },
+      { key:"network_breach",   hotspotId:"HS-NET",    name:"Network Breach",    riskLevel:"High",   description:"Weak segmentation/patching can allow a breach to spread. Patch systems, segment network, monitor logs, enforce MFA.", pitch:-11.3318, yaw:  76.4754 },
+      { key:"vulnerable_scanner", hotspotId:"HS-SCAN", name:"Vulnerable Scanner",riskLevel:"Medium", description:"Old scanners/terminals may have outdated firmware and insecure configs. Update firmware, disable unused services, enforce device auth.", pitch:-33.3150, yaw:  64.3777 }
+    ];
+
+    // Quiz per hotspot key
+    const QUIZ_BY_KEY = {
+      phishing_emails: [
+        { q:"You get an email saying 'Urgent: Update shipping payment details'. What should you do?",
+          choices:["Click the link immediately","Reply with your password","Verify sender + report suspicious email","Forward to everyone"],
+          a:2, why:"Phishing uses urgency. Verify and report instead of clicking." },
+        { q:"Which is a strong phishing indicator?",
+          choices:["Known sender and expected attachment","Spelling mistakes + strange URL","Internal email domain","Normal company signature"],
+          a:1, why:"Typos and mismatched URLs are common phishing clues." }
+      ],
+      unsecured_wifi: [
+        { q:"Best Wi-Fi security for workplace networks is:",
+          choices:["Open network","WEP","WPA2/WPA3 with strong passphrase","Hidden SSID only"],
+          a:2, why:"WPA2/WPA3 are modern secure standards." },
+        { q:"Why is public Wi-Fi risky for work systems?",
+          choices:["It is always faster","Attackers can sniff or spoof networks","It disables malware","It encrypts everything automatically"],
+          a:1, why:"Attackers can intercept traffic or create fake hotspots." }
+      ],
+      hacked_cctv: [
+        { q:"Best first step to reduce CCTV hacking risk?",
+          choices:["Keep default password","Change default credentials + strong password","Expose CCTV ports publicly","Disable updates forever"],
+          a:1, why:"Default passwords are heavily exploited. Change them immediately." },
+        { q:"Where should CCTV devices ideally be placed?",
+          choices:["Same LAN as servers","Isolated VLAN/network segment","Guest Wi-Fi","No authentication needed"],
+          a:1, why:"Segmentation reduces blast radius if IoT is compromised." }
+      ],
+      data_theft: [
+        { q:"Which control best prevents unauthorized access to shipment records?",
+          choices:["Shared account for everyone","Least privilege + audit logs","No passwords","Store on USB only"],
+          a:1, why:"Least privilege restricts access and logs track actions." },
+        { q:"What’s the safest way to store sensitive files?",
+          choices:["Plain text on desktop","Encrypted storage + backups","Email to personal account","Public shared folder"],
+          a:1, why:"Encryption + controlled access reduces theft risk." }
+      ],
+      network_breach: [
+        { q:"One key way to reduce breach impact is:",
+          choices:["Disable firewall","Network segmentation","Share admin credentials","Ignore patches"],
+          a:1, why:"Segmentation prevents attackers moving across the whole network." },
+        { q:"Which is most important for server security?",
+          choices:["Never update servers","Patch regularly and monitor logs","Use one password for all","Turn off authentication"],
+          a:1, why:"Patching + monitoring reduces vulnerabilities and detects attacks." }
+      ],
+      vulnerable_scanner: [
+        { q:"A handheld scanner is outdated. Best action?",
+          choices:["Keep using forever","Update firmware + enforce device security","Disable login","Connect to open Wi-Fi"],
+          a:1, why:"Updates patch known vulnerabilities; security policies harden devices." },
+        { q:"What should be enforced on warehouse devices?",
+          choices:["No authentication","Device authentication and access control","Everyone admin","No logging"],
+          a:1, why:"Device auth + access control limits misuse." }
+      ]
+    };
+
+    function panoPathForWarehouse(w){
+      const id = w?.warehouseId || w?._id || w?.id || "WH-001";
+      return `assets/panorama/${encodeURIComponent(id)}.jpg`;
+    }
+
+    function riskClass(r){
+      const rr = String(r || "").toLowerCase();
+      if(rr === "high") return "high";
+      if(rr === "low") return "low";
+      return "medium";
+    }
+
+    function openSpot(spot){
+      selectedSpot = spot;
+      spotEmpty.style.display = "none";
+      spotBox.style.display = "block";
+
+      spotId.textContent = spot.hotspotId || spot.key || "—";
+      spotZone.textContent = spot.name || "—";
+      spotRisk.innerHTML = `<span class="lg-badge ${riskClass(spot.riskLevel)}"><i class="fa-solid fa-triangle-exclamation"></i> ${spot.riskLevel || "Medium"}</span>`;
+      spotDesc.textContent = spot.description || "—";
+      spotStatus.textContent = "Tip: Start Spot Quiz to test awareness for this hotspot.";
+    }
+
+    function clearSpot(){
+      selectedSpot = null;
+      spotEmpty.style.display = "block";
+      spotBox.style.display = "none";
+    }
+
+    function ensureViewer(panoUrl){
+      if(!window.pannellum){
+        viewerHint.textContent = "360 viewer library not loaded. Check pannellum paths.";
+        return null;
+      }
+
+      viewerEl.innerHTML = "";
+
+      viewer = pannellum.viewer("viewer", {
+        type: "equirectangular",
+        panorama: panoUrl,
+        autoLoad: true,
+        showZoomCtrl: true,
+        showFullscreenCtrl: true,
+        mouseZoom: true,
+        hotSpots: []
+      });
+
+      viewer.__lgHotspotIds = [];
+      return viewer;
+    }
+
+    function resetViewer(){
+      if(!viewer) return;
+      const ids = Array.isArray(viewer.__lgHotspotIds) ? viewer.__lgHotspotIds : [];
+      ids.forEach(id => { try { viewer.removeHotSpot(id); } catch {} });
+      viewer.__lgHotspotIds = [];
+    }
+
+    function addFixedHotspot(spot){
+      if(!viewer) return;
+      if(!Array.isArray(viewer.__lgHotspotIds)) viewer.__lgHotspotIds = [];
+
+      const id = spot.key;
+      const cls = "lg-hotspot " + riskClass(spot.riskLevel);
+
+      viewer.addHotSpot({
+        id,
+        pitch: Number(spot.pitch),
+        yaw: Number(spot.yaw),
+        cssClass: cls,
+        createTooltipFunc: (div) => {
+          div.classList.add(...cls.split(" "));
+          div.title = `${spot.name} • ${spot.riskLevel}`;
+          div.addEventListener("click", () => openSpot(spot));
+        }
+      });
+
+      viewer.__lgHotspotIds.push(id);
+    }
+
+    function mergeBackendIntoFixed(fixedList, backendList){
+      if(!Array.isArray(backendList) || backendList.length === 0) return fixedList;
+
+      const text = (x) => `${x?.title||""} ${x?.zone||""} ${x?.description||""}`.toLowerCase();
+      const keys = {
+        hacked_cctv: ["cctv","camera"],
+        phishing_emails: ["phish","email"],
+        unsecured_wifi: ["wifi","wi-fi","wireless"],
+        data_theft: ["data","theft"],
+        network_breach: ["network","breach","server"],
+        vulnerable_scanner: ["scanner","device","terminal"]
+      };
+
+      return fixedList.map(f => {
+        const kws = keys[f.key] || [];
+        const found = backendList.find(b => kws.some(k => text(b).includes(k)));
+        if(!found) return f;
+
+        return {
+          ...f,
+          riskLevel: found.riskLevel || f.riskLevel,
+          description: found.description || f.description
+        };
+      });
+    }
+
+    async function loadWarehouses(){
+      const data = await LG.request("/warehouses");
+      return Array.isArray(data) ? data : (data.items || data.warehouses || []);
+    }
+
+    async function loadBackendHotspotsForWarehouse(w){
+      const id = w.warehouseId || w._id || w.id;
+      const data = await LG.request(`/warehouses/${encodeURIComponent(id)}/hotspots`);
+      return Array.isArray(data) ? data : (data.items || data.hotspots || []);
+    }
+
+    function renderWarehouses(){
+      whBody.innerHTML = warehouses.map(w => `
+        <tr>
+          <td style="font-weight:950;">${w.warehouseId || w._id || w.id || ""}</td>
+          <td>${w.name || ""}</td>
+          <td><button class="lg-btn" data-id="${w.warehouseId || w._id || w.id}">Open</button></td>
+        </tr>
+      `).join("");
+
+      whBody.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          statusText.textContent = "";
+          clearSpot();
+
+          const id = btn.getAttribute("data-id");
+          selectedWarehouse = warehouses.find(x => (x.warehouseId || x._id || x.id) == id);
+
+          viewerHint.textContent = `Loading 360 view for ${selectedWarehouse?.name || id}...`;
+
+          const panoUrl = panoPathForWarehouse(selectedWarehouse);
+          const v = ensureViewer(panoUrl);
+          if(!v) return;
+
+          resetViewer();
+
+          let spots = FIXED;
+
+          try{
+            const backend = await loadBackendHotspotsForWarehouse(selectedWarehouse);
+            spots = mergeBackendIntoFixed(FIXED, backend);
+          }catch{}
+
+          spots.forEach(addFixedHotspot);
+
+          viewerHint.textContent = "Click a hotspot in the 360 view. Then start the quiz for that hotspot.";
+        });
+      });
+    }
+
+    // ✅✅✅ FIXED: View status renders nice text (NOT JSON)
+    document.getElementById("statusBtn").addEventListener("click", async () => {
+      if(!selectedWarehouse){
+        statusText.textContent = "Select a warehouse first.";
+        return;
+      }
+
+      const id = selectedWarehouse.warehouseId || selectedWarehouse._id || selectedWarehouse.id;
+
+      try{
+        const data = await LG.request(`/warehouses/${encodeURIComponent(id)}/status`);
+
+        // if backend returned string, attempt parse
+        let obj = data;
+        if(typeof obj === "string"){
+          try { obj = JSON.parse(obj); }
+          catch { obj = { warehouseId: id, hotspotCount: 0, status: obj }; }
+        }
+
+        const warehouseId = obj.warehouseId || id;
+        const hotspotCount = Number(obj.hotspotCount || 0);
+        const stat = obj.status || (hotspotCount ? "Attention needed" : "Normal");
+
+        // badge coloring
+        const badgeClass = hotspotCount === 0 ? "low" : hotspotCount >= 3 ? "high" : "medium";
+        const icon = hotspotCount === 0 ? "fa-circle-check" : "fa-triangle-exclamation";
+
+        statusText.innerHTML = `
+          <div class="lg-kv"><div class="lg-k">Warehouse</div><div class="lg-v">${escapeHtml(warehouseId)}</div></div>
+          <div class="lg-kv"><div class="lg-k">Hotspots</div><div class="lg-v">${hotspotCount}</div></div>
+          <div class="lg-kv">
+            <div class="lg-k">Status</div>
+            <div class="lg-v">
+              <span class="lg-badge ${badgeClass}">
+                <i class="fa-solid ${icon}"></i> ${escapeHtml(stat)}
+              </span>
+            </div>
+          </div>
+        `;
+      }catch(e){
+        statusText.textContent = e?.message || "Status endpoint not found (optional).";
+      }
+    });
+
+    document.getElementById("clearSpotBtn").addEventListener("click", clearSpot);
+
+    // Quiz state
+    let quiz = { list: [], idx: 0, score: 0, answered: false, finished: false, submitted: false };
+
+    function openQuizForSpot(spot){
+      const list = (QUIZ_BY_KEY[spot.key] || []).slice(0, 3);
+      if(!list.length){
+        LG.toast("error","No quiz found for this hotspot.");
+        return;
+      }
+
+      quiz = { list, idx: 0, score: 0, answered: false, finished: false, submitted: false };
+      quizMeta.textContent = `${spot.name} • Risk: ${spot.riskLevel}`;
+      quizNext.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Next';
+      quizModal.classList.add("open");
+      quizModal.setAttribute("aria-hidden","false");
+      renderQuiz();
+    }
+
+    function renderQuiz(){
+      const q = quiz.list[quiz.idx];
+      quiz.answered = false;
+      quizExplain.textContent = "";
+      quizQ.textContent = `Q${quiz.idx+1}: ${q.q}`;
+      quizScore.textContent = `Score: ${quiz.score}/${quiz.list.length}`;
+
+      quizChoices.innerHTML = q.choices.map((c,i)=>`
+        <div class="lg-choice" data-i="${i}">
+          <i class="fa-solid fa-circle-dot" style="opacity:.7;"></i>
+          <div>${c}</div>
+        </div>
+      `).join("");
+
+      quizChoices.querySelectorAll(".lg-choice").forEach(el=>{
+        el.addEventListener("click", ()=>{
+          if(quiz.answered) return;
+          quiz.answered = true;
+
+          const chosen = Number(el.getAttribute("data-i"));
+          const correct = q.a;
+
+          quizChoices.querySelectorAll(".lg-choice").forEach(x=>x.classList.remove("correct","wrong"));
+
+          if(chosen === correct){
+            quiz.score += 1;
+            el.classList.add("correct");
+            quizExplain.textContent = "✅ Correct! " + (q.why || "");
+          }else{
+            el.classList.add("wrong");
+            const correctEl = quizChoices.querySelector(`.lg-choice[data-i="${correct}"]`);
+            if(correctEl) correctEl.classList.add("correct");
+            quizExplain.textContent = "❌ Incorrect. " + (q.why || "");
+          }
+
+          quizScore.textContent = `Score: ${quiz.score}/${quiz.list.length}`;
+        });
+      });
+    }
+
+    async function submitQuizAttempt(){
+      if(!selectedSpot) return;
+
+      const payload = {
+        warehouseId: selectedWarehouse?.warehouseId || "WH-001",
+        hotspotKey: selectedSpot.key,
+        hotspotName: selectedSpot.name,
+        correct: quiz.score,
+        total: quiz.list.length
+      };
+
+      await LG.request("/quiz/submit", { method: "POST", body: payload });
+
+      try{
+        const k = "lg_quiz_attempts";
+        const arr = JSON.parse(localStorage.getItem(k) || "[]");
+        arr.push({ ...payload, at: new Date().toISOString(), userId: LG.userId() });
+        localStorage.setItem(k, JSON.stringify(arr).slice(0, 200000));
+      }catch{}
+    }
+
+    quizNext.addEventListener("click", async () => {
+      if (quiz.finished) {
+        quiz.idx = 0;
+        quiz.score = 0;
+        quiz.answered = false;
+        quiz.finished = false;
+        quiz.submitted = false;
+        quizNext.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Next';
+        renderQuiz();
+        return;
+      }
+
+      if (quiz.idx < quiz.list.length - 1) {
+        quiz.idx += 1;
+        renderQuiz();
+        return;
+      }
+
+      quiz.finished = true;
+      quizQ.textContent = "Quiz completed!";
+      quizChoices.innerHTML = "";
+      quizExplain.textContent = `Final score: ${quiz.score}/${quiz.list.length}. Great job — awareness improved.`;
+      quizNext.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Restart';
+
+      if (!quiz.submitted) {
+        quiz.submitted = true;
+        try {
+          await submitQuizAttempt();
+        } catch (e) {
+          console.warn("Quiz save failed:", e.message);
+        }
+      }
+    });
+
+    quizClose.addEventListener("click", ()=>{
+      quizModal.classList.remove("open");
+      quizModal.setAttribute("aria-hidden","true");
+    });
+
+    document.getElementById("startQuizBtn").addEventListener("click", ()=>{
+      if(!selectedSpot) return;
+      openQuizForSpot(selectedSpot);
+    });
+
+    // Load warehouses
+    try{
+      warehouses = await loadWarehouses();
+    }catch{
+      warehouses = [{ warehouseId:"WH-001", name:"Main Warehouse", location:"Dock A", capacity: 250 }];
+    }
+
+    renderWarehouses();
+  });
+</script>
+</body>
+</html>
